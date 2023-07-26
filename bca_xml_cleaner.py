@@ -8,7 +8,7 @@ import textwrap
 import re
 
 VERSION = (0, 1, 0)
-version = '.'.join([str(x) for x in VERSION])
+__version__ = '.'.join([str(x) for x in VERSION])
 
 def parsley()->argparse.ArgumentParser:
     '''
@@ -17,7 +17,9 @@ def parsley()->argparse.ArgumentParser:
     description = '''
                   XML cleaner. Will remove newlines and tabs from XML data so that
                   when you export it to another format, like, say, CSV, it won't
-                  break the output
+                  break the output.
+
+                  This may take a long time, especially with gigantic XML files.
                   '''
     blocksize = '''
                 Minimum number of characters to read per block. The utility will
@@ -30,12 +32,18 @@ def parsley()->argparse.ArgumentParser:
                  Human readable text — one tag group per line. If you want more
                  than one line of text, use this option.
                  '''
+    encod = '''
+            Encoding of the input file. Defaults to UTF=8. Output will always be
+            UTF-8 because Windows-specific encodings are irritating.
+            '''
     parser = argparse.ArgumentParser(description=textwrap.dedent(description),
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('-b', '--blocksize',
                        help = textwrap.dedent(blocksize),
-                       default=536870912,
-                       required = False)
+                       default=536870912)
+    parser.add_argument('-e', '--encoding',
+                       help = textwrap.dedent(encod),
+                       default='utf-8')
     parser.add_argument('-r', '--readable',
                        action='store_true',
                        help = textwrap.dedent(humanread))
@@ -43,29 +51,37 @@ def parsley()->argparse.ArgumentParser:
                        help = 'XML file to process')
     parser.add_argument('outfile',
                           help= 'Output file')
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s '+__version__,
+                        help='Show version number and exit')
     return parser
 
-
-def main():
+def process_file(infile:pathlib.Path, outfile:pathlib.Path,
+                 blocksize:int, encoding='utf-8',
+                 humr=False)->None:
     '''
-    Call this to make it work
+    This is the actual cleaner.
+    infile: pathlib.Path
+        The incoming xml file
+    outfile: pathlib.Path
+        The outgoing cleaned file
+    blocksize: int
+        Minimum number of characters to read
+    humr:bool
+        Human-readability flag
     '''
-    INFILE = '20230331_REVD23_0180.xml'
-    #INFILE = 'dummy.xml'
-    infile = pathlib.Path(INFILE)
-    OUTFILE = 'cleaned.xml'
-    file = pathlib.Path(OUTFILE)
-    BLOCK = 536870912 #0.5GB block size, so that you don't run out of RAM
-    spc = re.compile('\s\s+')
-    if os.path.exists(file):
-        os.remove(file)
-    #with open('dummy.xml', 'r', encoding='utf-8') as f:
-    with open(infile, 'r', encoding='utf-8') as f:
-        data  = f.read(BLOCK) # Stream the file in
+    #Remove any extra spaces because you shouldn't have these
+    spc = re.compile('\s\s+')#pylint: disable=anomalous-backslash-in-string
+    #By default the chunks append, so it's necessary to erase the file
+    #in case you do need to process it more than once
+    if os.path.exists(outfile):
+        os.remove(outfile)
+    with open(infile, 'r', encoding=encoding) as fil:
+        data  = fil.read(blocksize) # Stream the file in
         while data:
             #read to end of a tag
             while not data.endswith('>'):
-                add = f.read(1)
+                add = fil.read(1)
                 data = data + add
                 if not add:
                     break # You have reached the end
@@ -74,17 +90,32 @@ def main():
             #remove two or more spaces
             data = ' '.join([x for x in re.split(spc, data) if x])
             # For human readability
-            data = data.replace('> <', '>\n<')
+            if humr:
+                data = data.replace('> <', '>\n<')
             # write/append file after every 0.5 GB read so that the buffer doesn't
             # exceed memory capacity
-            with open(file, 'a+', encoding='utf-8', newline='') as outf:
+            with open(outfile, 'a+', encoding='utf-8', newline='') as outf:
                 outf.write(data)
             #And start with a new block
-            data  = f.read(BLOCK)
+            data  = fil.read(blocksize)
+
+def main():
+    '''
+    You know what this is.
+    '''
+    args = parsley().parse_args()
+    process_file(pathlib.Path(args.infile),
+                 pathlib.Path(args.outfile),
+                 args.blocksize,
+                 args.encoding,
+                 args.readable)
 
 def test():
+    '''
+    Tests
+    '''
     args = parsley().parse_args()
     print(args)
 
 if __name__ == '__main__':
-    test() 
+    test()
