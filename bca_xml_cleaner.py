@@ -6,8 +6,9 @@ import os
 import pathlib
 import textwrap
 import re
+import sys
 
-VERSION = (0, 1, 0)
+VERSION = (0, 2, 0)
 __version__ = '.'.join([str(x) for x in VERSION])
 
 def parsley()->argparse.ArgumentParser:
@@ -21,16 +22,17 @@ def parsley()->argparse.ArgumentParser:
 
                   This may take a long time, especially with gigantic XML files.
                   '''
-    blocksize = '''
+    block_size = '''
                 Minimum number of characters to read per block. The utility will
-                read this many plus any extra to reach the end of the next tag,
-                ie the '>' character. Assuming one byte per character, the default
+                read this many plus any extra to reach the end of the next tag –
+                ie. the '>' character. Assuming one byte per character, the default
                 of 536870912 will read and write XML data in approximately 0.5 GB
                 chunks, which should save your RAM and drive.
                 '''
     humanread =  '''
                  Human readable text — one tag group per line. If you want more
-                 than one line of text, use this option.
+                 than one line of text, use this option. By default the XML
+                 output will be a single line of text.
                  '''
     encod = '''
             Encoding of the input file. Defaults to UTF=8. Output will always be
@@ -39,7 +41,7 @@ def parsley()->argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=textwrap.dedent(description),
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('-b', '--blocksize',
-                       help = textwrap.dedent(blocksize),
+                       help = textwrap.dedent(block_size),
                        default=536870912)
     parser.add_argument('-e', '--encoding',
                        help = textwrap.dedent(encod),
@@ -49,14 +51,16 @@ def parsley()->argparse.ArgumentParser:
                        help = textwrap.dedent(humanread))
     parser.add_argument('infile',
                        help = 'XML file to process')
-    parser.add_argument('outfile',
-                          help= 'Output file')
-    parser.add_argument('--version', action='version',
+    parser.add_argument('-o','--outfile',
+                        help= 'Output file. If not supplied, output defaults to stdout.',
+                        default=None)
+    parser.add_argument('-v','--version', action='version',
                         version='%(prog)s '+__version__,
                         help='Show version number and exit')
     return parser
 
-def process_file(infile:pathlib.Path, outfile:pathlib.Path,
+def process_file(infile:pathlib.Path,
+                 outfile:str,
                  blocksize:int, encoding='utf-8',
                  humr=False)->None:
     '''
@@ -74,8 +78,10 @@ def process_file(infile:pathlib.Path, outfile:pathlib.Path,
     spc = re.compile('\s\s+')#pylint: disable=anomalous-backslash-in-string
     #By default the chunks append, so it's necessary to erase the file
     #in case you do need to process it more than once
-    if os.path.exists(outfile):
-        os.remove(outfile)
+    if outfile:
+        outfile = pathlib.Path(outfile)
+        if os.path.exists(outfile):
+            os.remove(outfile)
     with open(infile, 'r', encoding=encoding) as fil:
         data  = fil.read(blocksize) # Stream the file in
         while data:
@@ -94,8 +100,11 @@ def process_file(infile:pathlib.Path, outfile:pathlib.Path,
                 data = data.replace('> <', '>\n<')
             # write/append file after every 0.5 GB read so that the buffer doesn't
             # exceed memory capacity
-            with open(outfile, 'a+', encoding='utf-8', newline='') as outf:
-                outf.write(data)
+            if not outfile: # explicit stdout in case of platform weirdness
+                print(data, file=sys.stdout)
+            else:
+                with open(outfile, 'a+', encoding='utf-8', newline='') as outf:
+                    outf.write(data)
             #And start with a new block
             data  = fil.read(blocksize)
 
@@ -105,17 +114,10 @@ def main():
     '''
     args = parsley().parse_args()
     process_file(pathlib.Path(args.infile),
-                 pathlib.Path(args.outfile),
+                 args.outfile,
                  args.blocksize,
                  args.encoding,
                  args.readable)
 
-def test():
-    '''
-    Tests
-    '''
-    args = parsley().parse_args()
-    print(args)
-
 if __name__ == '__main__':
-    test()
+    main()
