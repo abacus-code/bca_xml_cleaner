@@ -25,3 +25,33 @@ Although hardly super-fast, the Python script included here will easily remove l
 ## Usage
 
 Run the script `bca_xml_cleaner.py` with `python3 bca_xml_cleaner.py`. No extra bells and whistles are needed; everything is included in the Python standard library.
+
+```nohighlight
+usage: bca_xml_cleaner.py [-h] [-b BLOCKSIZE] [-e ENCODING] [-r] [-o OUTFILE] [-v] infile
+
+XML cleaner. Will remove newlines and tabs from XML data so that when you
+export it to another format, like, say, CSV, it won't break the output.
+
+This may take a long time, especially with gigantic XML files.
+
+positional arguments:
+  infile                XML file to process
+
+options:
+  -h, --help            show this help message and exit
+  -b BLOCKSIZE, --blocksize BLOCKSIZE
+                        Minimum number of characters to read per block. The utility will
+                        read this many plus any extra to reach the end of the next tag –
+                        ie. the '>' character. Assuming one byte per character, the default
+                        of 536870912 will read and write XML data in approximately 0.5 GB
+                        chunks, which should save your RAM and drive.
+  -e ENCODING, --encoding ENCODING
+                        Encoding of the input file. Defaults to UTF-8. Output will always be
+                        UTF-8 because Windows-specific encodings are irritating.
+  -r, --readable        Human readable text — one tag group per line. If you want more
+                        than one line of text, use this option. By default the XML
+                        output will be a single line of text unless you use this switch.
+  -o OUTFILE, --outfile OUTFILE
+                        Output file. If not supplied, output defaults to stdout.
+  -v, --version         Show version number and exit
+```
