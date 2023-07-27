@@ -8,7 +8,7 @@ import textwrap
 import re
 import sys
 
-VERSION = (0, 2, 0)
+VERSION = (0, 2, 1)
 __version__ = '.'.join([str(x) for x in VERSION])
 
 def parsley()->argparse.ArgumentParser:
@@ -64,15 +64,19 @@ def process_file(infile:pathlib.Path,
                  blocksize:int, encoding='utf-8',
                  humr=False)->None:
     '''
-    This is the actual cleaner.
+    Replaces tabs and newlines in an XML file, plus
+    removes occurences of multiple spaces.
     infile: pathlib.Path
-        The incoming xml file
-    outfile: pathlib.Path
-        The outgoing cleaned file
+        The incoming xml file.
+    outfile: str
+        The outgoing cleaned file. Because None as a value
+        causes output to stdout, this input should be a string
+        or None.
     blocksize: int
-        Minimum number of characters to read
+        Minimum number of characters to read, approximately
+        equal to the number of bytes.
     humr:bool
-        Human-readability flag
+        Human-readability flag.
     '''
     #Remove any extra spaces because you shouldn't have these
     spc = re.compile('\s\s+')#pylint: disable=anomalous-backslash-in-string
